@@ -16,8 +16,8 @@ device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 train_data_path = './CONLL2003/train.txt'
 valid_data_path = './CONLL2003/valid.txt'
 test_data_path = './CONLL2003/test.txt'
-WORD2VEC_MATRIX_PATH = '/home/nlp_ner/word2vec.42B.300d.txt'#需提前准备
-CHECK_POINT_PATH = '/home/nlp_ner/model.pkl'#需提前准备
+WORD2VEC_MATRIX_PATH = '/home/gpu2/bolvvv/nlp_ner/word2vec.42B.300d.txt'#需提前准备
+CHECK_POINT_PATH = '/home/gpu2/bolvvv/nlp_ner/model.pkl'#需提前准备
 
 #glove向量矩阵载入
 glove_model = KeyedVectors.load_word2vec_format(WORD2VEC_MATRIX_PATH)
@@ -43,6 +43,29 @@ def classifier(word_class):
     else:
         print("原始文本类别错误")
     return y_hat
+
+def classifier_trans(numpy_array_class):
+    o = 0
+    per = 1
+    loc = 2
+    org = 3
+    misc = 4
+
+    if numpy_array_class == o:
+        return "O"
+    elif numpy_array_class == per:
+        return "PER"
+    elif numpy_array_class == loc:
+        return "LOC"
+    elif numpy_array_class == org:
+        return "ORG"
+    elif numpy_array_class == misc:
+        return "MISC"
+    else:
+        print("原始文本类别错误")
+        return "WRONG CLASS"
+        
+
 
 def get_data(index, window_size, word_list, word_class_list):
     x = np.array([])#输入向量，维度为900,即窗口为3，一个词向量对应维度为300
@@ -123,7 +146,7 @@ def train(data_path, model, device, Lr):
     torch.save(checkpoint, CHECK_POINT_PATH) 
     print("training took %f seconds" % (time.time() - startTime))
 
-def valid(data_path, model, checkpoint_path, device):
+def valid(data_path, model, checkpoint_path, device, valid_method):
     word_list, word_class_list = preprocessing(train_data_path)#获取预处理词汇
     optimizer = torch.optim.SGD(model.parameters(), lr=1e-2)
     #载入模型
@@ -132,30 +155,40 @@ def valid(data_path, model, checkpoint_path, device):
     optimizer.load_state_dict(checkpoint['opt_state_dict'])
     model.eval()#设置为评价模式
     right_count = 0 #预测正确的数量
+    all_count = 0 #单词总量
     startTime=time.time()#计时
     for i in range(1,len(word_list)-1):
+        #当评价方式设置为1时，会去除类别为'O'的单词，以免'O'类单词数量过多造成准确率虚高的问题
+        if valid_method == 1:
+            if word_class_list[i] == 'O':
+                continue
+
         x, y = get_data(i, 1, word_list, word_class_list)
         x, y = x.to(device), y.to(device)
         y_pred = model(x)
-
         y_trans = y.cpu().detach().numpy()
         y_trans_pred = y_pred.cpu().detach().numpy()
 
+        print("预测结果:"+classifier_trans(np.argmax(y_trans_pred))+ " "+"实际结果:"+classifier_trans(np.argmax(y_trans))+" "+str(np.argmax(y_trans) == np.argmax(y_trans_pred)))
+        all_count += 1 #单词总量加1
+        #预测正确，数量加1
         if np.argmax(y_trans) == np.argmax(y_trans_pred):
             right_count+=1
-        if i % 100 == 99:
-            print(i, right_count)
+        if all_count % 100 == 99:
+            print("当前准确率为:%f" % (right_count/all_count))
+
     print("valid took %f seconds" % (time.time() - startTime))
-    print("正确率：%f" % (right_count/len(word_list)))
+    print("模型预测正确率：%f" % (right_count/all_count))
 
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--stage", type=str, default='train', help="is train or valid")
+    parser.add_argument("--method", type=int, default=0, help="valid method")
     opt = parser.parse_args()
     model = NERModel(D_in, H, D_out).to(device)#生成模型
     if opt.stage == 'train':
         train(train_data_path, model, device, LR)
     elif opt.stage == 'valid':
-        valid(valid_data_path, model, CHECK_POINT_PATH, device)
+        valid(valid_data_path, model, CHECK_POINT_PATH, device, opt.method)
 
 main()
