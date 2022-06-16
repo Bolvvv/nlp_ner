@@ -22,7 +22,7 @@ WORD2VEC_MATRIX_PATH = './glove.42B.300d.txt'#需提前准备
 
 CHECK_POINT_PATH = './model.pkl'#需提前准备
 
-#********************词向量载入，第一次启动项目时使用方法1生成二进制词向量，后面使用方法2载入词向量********************
+#********************词向量载入，第一次启动项目时使用方法1生成二进制词向量，后面使用方法2载入词向量（方法2可以加快载入速度）********************
 #方法1:
 glove_model = KeyedVectors.load_word2vec_format(WORD2VEC_MATRIX_PATH, no_header=True)
 glove_model.init_sims(replace=True)
