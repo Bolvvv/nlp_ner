@@ -8,6 +8,8 @@ import torch
 import torch.nn as nn
 
 from gensim.models import KeyedVectors
+from gensim.test.utils import common_texts
+from gensim.models import Word2Vec
 
 #设置cuda使用
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
@@ -16,11 +18,19 @@ device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 train_data_path = './CONLL2003/train.txt'
 valid_data_path = './CONLL2003/valid.txt'
 test_data_path = './CONLL2003/test.txt'
-WORD2VEC_MATRIX_PATH = '/home/gpu2/bolvvv/nlp_ner/word2vec.42B.300d.txt'#需提前准备
-CHECK_POINT_PATH = '/home/gpu2/bolvvv/nlp_ner/model.pkl'#需提前准备
+WORD2VEC_MATRIX_PATH = './glove.42B.300d.txt'#需提前准备
 
-#glove向量矩阵载入
-glove_model = KeyedVectors.load_word2vec_format(WORD2VEC_MATRIX_PATH)
+CHECK_POINT_PATH = './model.pkl'#需提前准备
+
+#********************词向量载入，第一次启动项目时使用方法1生成二进制词向量，后面使用方法2载入词向量********************
+#方法1:
+glove_model = KeyedVectors.load_word2vec_format(WORD2VEC_MATRIX_PATH, no_header=True)
+glove_model.init_sims(replace=True)
+glove_model.save(WORD2VEC_MATRIX_PATH.replace(".txt", ".bin"))
+
+#方法2:
+# glove_model = KeyedVectors.load(WORD2VEC_MATRIX_PATH.replace(".txt", ".bin"), mmap='r')
+#*********************************************************************************************************
 
 #超参数设定
 window_size = 2
@@ -74,7 +84,7 @@ def get_data(index, window_size, word_list, word_class_list):
             continue
         else:
             try:
-                tmp = glove_model.wv[word_list[i]]
+                tmp = glove_model[word_list[i]]
                 x = np.concatenate((x, tmp))
             except KeyError:
                 #出现此错误表示在词向量矩阵中未找到对应词的向量，将此词的向量设置为0

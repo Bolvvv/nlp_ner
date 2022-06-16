@@ -140,3 +140,4 @@ cython_debug/
 model.pkl
 word2vec.42B.300d.txt
 glove.42B.300d.txt
+glove.42B.300d.bin
